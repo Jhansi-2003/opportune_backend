@@ -1,0 +1,33 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "proxy": "https://remotive.io",
+  "description": "",
+  "scripts": {
+    "start": "nodemon main.js",
+    "server": "nodemon backend/index.js",
+    "client": "cd frontend && npm start",
+    "dev": "concurrently \"nodemon backend/server.js\" \"nodemon backend/fetchjobs.js\" \"nodemon backend/fetchinternships.js\" \"nodemon backend/fetchworkshops.js\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "firebase": "^11.4.0",
+    "googleapis": "^144.0.0",
+    "mysql2": "^3.12.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.0",
+    "nodemailer-smtp-transport": "^2.7.4",
+    "twilio": "^5.4.5"
+  }
+}
