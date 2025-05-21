@@ -6,14 +6,14 @@ import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { google } from "googleapis";
-import cron from "node-cron";
 
 dotenv.config();
+
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ✅ MySQL connection setup
+// ✅ MySQL Connection
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -24,12 +24,12 @@ const db = mysql.createConnection({
 db.connect((err) => {
     if (err) {
         console.error("Database connection failed:", err.stack);
-        return;
+    } else {
+        console.log("✅ Connected to MySQL database");
     }
-    console.log("Connected to MySQL database");
 });
 
-// ✅ OAuth2 Setup for Sending Emails
+// ✅ OAuth2 Setup for Nodemailer
 const oAuth2Client = new google.auth.OAuth2(
     process.env.CLIENT_ID,
     process.env.CLIENT_SECRET,
@@ -56,38 +56,32 @@ const sendEmail = async (email, token) => {
             from: `Your App <${process.env.EMAIL}>`,
             to: email,
             subject: "Password Reset Request",
-            html: `<p>Click the link below to reset your password:</p>
-                   <a href="http://localhost:5173/reset-password?token=${token}">Reset Password</a>
-                   <p>This link expires in 15 minutes.</p>`,
+            html: `
+                <p>Click the link below to reset your password:</p>
+                <a href="http://localhost:5173/reset-password?token=${token}">Reset Password</a>
+                <p>This link expires in 15 minutes.</p>
+            `,
         };
 
         await transporter.sendMail(mailOptions);
-        console.log("Password reset email sent!");
+        console.log("✅ Reset email sent");
     } catch (error) {
-        console.error("Error sending email:", error);
+        console.error("❌ Email sending failed:", error);
     }
 };
 
 // ✅ Fetch User Profile
 app.get("/api/profile/:userId", (req, res) => {
     const userId = req.params.userId;
+    db.query("SELECT * FROM registration WHERE id = ?", [userId], (err, result) => {
+        if (err) return res.status(500).json({ message: "Error fetching profile" });
+        if (result.length === 0) return res.status(404).json({ message: "User not found" });
 
-    const sql = "SELECT * FROM registration WHERE id = ?";
-    db.query(sql, [userId], (err, result) => {
-        if (err) {
-            console.error("Error fetching profile:", err);
-            return res.status(500).json({ message: "Error fetching profile" });
-        }
-
-        if (result.length === 0) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        res.json(result[0]); // Send profile data
+        res.json(result[0]);
     });
 });
 
-// ✅ Apply for a Job/Internship/Workshop
+// ✅ Apply to Job/Internship/Workshop
 app.post("/api/apply", (req, res) => {
     const { userId, jobId, title, company, category, appliedDate } = req.body;
 
@@ -95,50 +89,52 @@ app.post("/api/apply", (req, res) => {
         return res.status(400).json({ message: "All fields are required" });
     }
 
-    const sql = `INSERT INTO applications (user_id, job_id, title, company, category, applied_date) 
-                 VALUES (?, ?, ?, ?, ?, ?)`;
+    const sql = `
+        INSERT INTO applications (user_id, job_id, title, company, category, applied_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `;
 
     db.query(sql, [userId, jobId, title, company, category, appliedDate], (err) => {
-        if (err) {
-            console.error("Error saving application:", err);
-            return res.status(500).json({ message: "Failed to save application" });
-        }
-        res.status(201).json({ message: "Application saved successfully!" });
+        if (err) return res.status(500).json({ message: "Failed to save application" });
+
+        res.status(201).json({ message: "Application submitted successfully" });
     });
 });
 
-// ✅ Fetch Applied Jobs/Internships/Workshops
+// ✅ Get Applied Jobs
 app.get("/api/applied/:userId", (req, res) => {
     const userId = req.params.userId;
-    const sql = `SELECT * FROM applications WHERE user_id = ? ORDER BY applied_date DESC`;
 
-    db.query(sql, [userId], (err, results) => {
-        if (err) {
-            console.error("Error fetching applications:", err);
-            res.status(500).json({ message: "Failed to fetch applications" });
-        } else {
-            res.json(results);
-        }
+    db.query("SELECT * FROM applications WHERE user_id = ? ORDER BY applied_date DESC", [userId], (err, results) => {
+        if (err) return res.status(500).json({ message: "Failed to fetch applications" });
+
+        res.json(results);
     });
 });
 
-// ✅ Forgot Password Endpoint
+// ✅ Forgot Password
 app.post("/api/forgot-password", (req, res) => {
     const { email } = req.body;
 
-    db.query("SELECT * FROM users WHERE email = ?", [email], (err, results) => {
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "15m" });
+
+    // Check if user exists and update reset_token
+    db.query("SELECT * FROM registration WHERE email = ?", [email], (err, result) => {
         if (err) return res.status(500).json({ message: "Database error" });
-        if (results.length === 0) return res.status(400).json({ message: "User not found" });
+        if (result.length === 0) return res.status(404).json({ message: "Email not registered" });
 
-        const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "15m" });
-        db.query("UPDATE users SET reset_token = ? WHERE email = ?", [token, email]);
+        db.query("UPDATE registration SET reset_token = ? WHERE email = ?", [token, email], (err) => {
+            if (err) return res.status(500).json({ message: "Failed to store reset token" });
 
-        sendEmail(email, token);
-        res.json({ message: "Reset email sent!" });
+            sendEmail(email, token);
+            res.json({ message: "Reset email sent" });
+        });
     });
 });
 
-// ✅ Reset Password Endpoint
+// ✅ Reset Password
 app.post("/api/reset-password", (req, res) => {
     const { token, newPassword } = req.body;
 
@@ -146,36 +142,44 @@ app.post("/api/reset-password", (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const email = decoded.email;
 
-        bcrypt.hash(newPassword, 10, (err, hash) => {
-            if (err) return res.status(500).json({ message: "Error hashing password" });
+        bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
+            if (err) return res.status(500).json({ message: "Password hashing failed" });
 
-            db.query("UPDATE users SET password = ?, reset_token = NULL WHERE email = ?", [hash, email], (err) => {
-                if (err) return res.status(500).json({ message: "Database error" });
+            db.query(
+                "UPDATE registration SET password = ?, reset_token = NULL WHERE email = ?",
+                [hashedPassword, email],
+                (err) => {
+                    if (err) return res.status(500).json({ message: "Failed to update password" });
 
-                res.json({ message: "Password updated successfully!" });
-            });
+                    res.json({ message: "Password reset successful" });
+                }
+            );
         });
     } catch (error) {
-        res.status(400).json({ message: "Invalid or expired token" });
+        return res.status(400).json({ message: "Invalid or expired token" });
     }
 });
 
 // ✅ Registration Route
-const saltRounds = 10;
 app.post("/register", (req, res) => {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
-        return res.status(400).json({ message: "Missing required fields" });
+        return res.status(400).json({ message: "All fields are required" });
     }
 
-    bcrypt.hash(password, saltRounds, (err, hash) => {
-        if (err) return res.status(500).json({ message: "Error hashing password" });
+    bcrypt.hash(password, 10, (err, hashedPassword) => {
+        if (err) return res.status(500).json({ message: "Password hashing failed" });
 
-        db.query("INSERT INTO registration (username, email, password) VALUES (?, ?, ?)", [username, email, hash], (err) => {
-            if (err) return res.status(500).json({ message: "Error inserting data" });
-            res.status(201).json({ message: "User registered successfully" });
-        });
+        db.query(
+            "INSERT INTO registration (username, email, password) VALUES (?, ?, ?)",
+            [username, email, hashedPassword],
+            (err) => {
+                if (err) return res.status(500).json({ message: "User already exists or DB error" });
+
+                res.status(201).json({ message: "Registration successful" });
+            }
+        );
     });
 });
 
@@ -183,26 +187,25 @@ app.post("/register", (req, res) => {
 app.post("/login", (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
-    }
+    if (!email || !password) return res.status(400).json({ message: "Email and password required" });
 
-    db.query("SELECT * FROM registration WHERE email = ?", [email], (err, results) => {
-        if (err) return res.status(500).json({ message: "Error querying the database" });
+    db.query("SELECT * FROM registration WHERE email = ?", [email], (err, result) => {
+        if (err) return res.status(500).json({ message: "Database error" });
 
-        if (results.length === 0) {
-            return res.status(401).json({ success: false, message: "Invalid credentials" });
+        if (result.length === 0) {
+            return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        const user = results[0];
+        const user = result[0];
         bcrypt.compare(password, user.password, (err, isMatch) => {
             if (err) return res.status(500).json({ message: "Error comparing passwords" });
 
-            if (!isMatch) {
-                return res.status(401).json({ success: false, message: "Invalid credentials" });
-            }
+            if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-            res.status(200).json({ success: true, message: "Login successful" });
+            res.status(200).json({
+                message: "Login successful",
+                user: { id: user.id, username: user.username, email: user.email },
+            });
         });
     });
 });
@@ -210,5 +213,5 @@ app.post("/login", (req, res) => {
 // ✅ Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });

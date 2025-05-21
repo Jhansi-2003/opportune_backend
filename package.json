@@ -6,7 +6,7 @@
   "proxy": "https://remotive.io",
   "description": "",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js",
     "server": "nodemon backend/index.js",
     "client": "cd frontend && npm start",
     "dev": "concurrently \"nodemon backend/server.js\" \"nodemon backend/fetchjobs.js\" \"nodemon backend/fetchinternships.js\" \"nodemon backend/fetchworkshops.js\""
