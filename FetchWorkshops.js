@@ -7,7 +7,7 @@ dotenv.config();
 const app = express();
 app.use(cors());
 
-const PORT = 5000;
+const PORT = 5005;
 const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID; // Store in .env
 const ADZUNA_API_KEY = process.env.ADZUNA_API_KEY;
 const COUNTRY = "in"; // India
