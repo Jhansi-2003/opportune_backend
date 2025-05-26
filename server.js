@@ -29,7 +29,6 @@ app.use(express.json());
 
 // ✅ Enable CORS
 const allowedOrigins = [
-  'http://localhost:3000',
   'https://opportune-frontend-jasd-bulu13pax-jhansi-2003s-projects.vercel.app'
 ];
 
@@ -222,7 +221,7 @@ app.post("/api/register", [
 });
 
 // ✅ Login
-app.post("/login", authLimiter, [
+app.post("/api/login", authLimiter, [
   body("email").isEmail().withMessage("Valid email is required"),
   body("password").notEmpty().withMessage("Password is required")
 ], (req, res) => {
