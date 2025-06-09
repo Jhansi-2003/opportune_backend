@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // Route to fetch internships from Jooble
-app.get("/api/internships", async (req, res) => {
+app.get("https://opportune-frontend-1kbh.vercel.app/api/internships", async (req, res) => {
     try {
         const response = await axios.post(`https://jooble.org/api/${JOOBLE_API_KEY}`, {
             keywords: "internship",

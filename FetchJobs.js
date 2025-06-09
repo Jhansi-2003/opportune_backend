@@ -35,7 +35,7 @@ router.get("/fetch-applied-jobs", async (req, res) => {
             return res.status(400).json({ error: "User ID is required" });
         }
 
-        const response = await axios.get("http://localhost:5002/api/applied-jobs", {
+        const response = await axios.get("https://opportune-frontend-1kbh.vercel.app/api/applied-jobs", {
             params: { userId }
         });
 
