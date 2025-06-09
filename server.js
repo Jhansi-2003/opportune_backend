@@ -27,10 +27,9 @@ for (const key of requiredEnv) {
 const app = express();
 app.use(express.json());
 
-// ✅ Enable CORS
-const allowedOrigins = [
-  'https://opportune-frontend-jasd-bulu13pax-jhansi-2003s-projects.vercel.app'
-];
+const cors = require('cors');
+app.use(cors({ origin: 'https://opportune-frontend-1kbh.vercel.app' }));
+
 
 app.use(cors({
   origin: function(origin, callback) {
