@@ -4,7 +4,7 @@ import axios from "axios";
 import cors from "cors";
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = 5001;
 const JOOBLE_API_KEY = process.env.JOOBLE_API_KEY;
 
 app.use(cors());
